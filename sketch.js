@@ -4,21 +4,26 @@ const s = ( sketch ) => {
 
   sketch.setup = () => {
     sketch.createCanvas(600, 600);
-    c = new Cartesian({sketch});
+    c = new Cartesian({sketch, rangeX : [-3, 3], rangeY : [2, 8]});
     c.drawPlane();
   };
 
   sketch.draw = () => {
-    //c.zoomToCenter(2, [-0.5, 0.5]);
-    c.zoomToCenter( 1, null, 1.5);
-    c.panTo([0, 12]);
+    // c.zoomToCenter(1, 2, null).then(() => {
+    //   c.panTo([2,1]);
+    // });
+    // c.panTo([0, 12]).then(() => {
+    //   c.zoomToCenter(1, 2, null)
+    // });
+    // c.zoomToCenter(2, 2);
+    // c.panTo([12, 0], 0.3);
     c.drawPlane();
   };
 };
 
 // if you want to zoom and pan simultaneously 
 // 1. always zoom first and then pan
-// 2. speed of pan should always be greater than or equal to speed of zoom 
+// 2. speed of pan should always be greater than or equal to speed of zoom -- not needed anymore
 
 const s2 = ( sketch ) => {
 

@@ -1,8 +1,10 @@
 class Cartesian {
-    constructor({sketch, rangeX = [-5, 5], rangeY = [-5, 5], scale = 0.25, grid = {numbered : true, style : "gridlined"}}) {
+    constructor({sketch, rangeX = [-5, 5], rangeY = [-5, 5], scale = 0.25, grid = {numbered : true, style : "gridlined"}, gridAnimation = new Animation(true, 0, 0.1)}) {
         this.sketch = sketch;
         this.rangeX = rangeX;
+        this.rangeSpanX = this.rangeX[1] - this.rangeX[0];
         this.rangeY = rangeY;
+        this.rangeSpanY = this.rangeY[1] - this.rangeY[0];
         this.scale = scale; // distance at which gridlines are displayed
         this.grid = grid;
         this.unitX = this.sketch.width/(rangeX[1] - rangeX[0]);
@@ -12,17 +14,13 @@ class Cartesian {
         this.colorPallete = {
             background : 30,
             axis : 255,
-            grid : this.sketch.color(50, 120, 180),
+            grid : grid.style == "gridlined" ? this.sketch.color(50, 120, 180) : 255,
             markings : 255
         };
         this.markings = 1; // grid will have thick lines and be marked with the number every ___ units
-        this.maxHeight = this.sketch.height;
-        this.maxWidth = this.sketch.width;
-        if (grid.style == "lined") {
-            this.maxHeight = 10;
-            this.maxWidth = 10;
-            this.colorPallete.grid = this.sketch.color(100, 200, 255);
-        }
+        this.gridAnimation = gridAnimation;
+        this.zoomAnimation = new Animation();
+        this.panAnimation = new Animation();
     }
 
     pixelToPoint(x, y) {
@@ -40,6 +38,7 @@ class Cartesian {
     updateRangeX(newRange) {
         this.rangeX = newRange;
         this.unitX = this.sketch.width/(this.rangeX[1] - this.rangeX[0]);
+        this.rangeSpanX = this.rangeX[1] - this.rangeX[0];
         this.originPx[0] = -this.rangeX[0] * this.unitX;
         this.center[0] = (this.rangeX[1] + this.rangeX[0])/2;
 
@@ -49,8 +48,9 @@ class Cartesian {
     }
 
     updateRangeY(newRange) {
-        this.rangeY = newRange
+        this.rangeY = newRange;
         this.unitY = this.sketch.height/(this.rangeY[1] - this.rangeY[0]);
+        this.rangeSpanY = this.rangeY[1] - this.rangeY[0];
         this.center[1] = (this.rangeY[1] + this.rangeY[0])/2;
         this.originPx[1] =  this.rangeY[1] * this.unitY;
 
@@ -65,25 +65,39 @@ class Cartesian {
 
     // give positive speed to zoom in and negative to zoom out
     // will zoom till the viewport displays a graph that ranges to targetScale * scale in all directions from center 
-    zoomToCenter(speed = 1, targetRange = null, targetScale = 1) {
-        if ((!targetRange || (targetRange[0] * Math.sign(speed) > this.rangeX[0] * Math.sign(speed))) && this.scale < (this.rangeX[1] - this.rangeX[0])/(2 * targetScale)) {
-            this.updateRangeX([this.rangeX[0] / (1 + (.005 * speed)), this.rangeX[1] / (1 + (.005 * speed))]);
-            this.updateRangeY([this.rangeY[0] / (1 + (.005 * speed)), this.rangeY[1] / (1 + (.005 * speed))]);
+    zoomToCenter(speed = 1, targetScale = 1, targetRange = null) {
+        if (this.zoomAnimation.animate != false) {
+            if ((!targetRange || (targetRange[0] * Math.sign(speed) > this.rangeX[0] * Math.sign(speed))) && this.scale < (this.rangeX[1] - this.rangeX[0])/(2 * targetScale)) {
+                this.zoomAnimation.animate = true;
+                this.updateRangeX([this.rangeX[0] + (.002 * this.rangeSpanX * speed), this.rangeX[1] - (.002 * this.rangeSpanX  * speed)]);
+                this.updateRangeY([this.rangeY[0] + (.002 * this.rangeSpanY * speed), this.rangeY[1] - (.002 * this.rangeSpanY  * speed)]);
+            }
+            else {
+                this.zoomAnimation.animate = false;
+            }
         }
+        return this.zoomAnimation;
     }
 
-    panTo(point, speed = 1) {
-        let v = new Vector(point);
-        if (!v.isEqual(new Vector(this.center))) {
-            let cen = new Vector(this.center);
-     
-            let vel = v.subtract(cen).unit().mult(0.1 * speed);
-            if (Vector.length(v, cen) < vel.mag) {
-                vel.resizeTo(Vector.length(v, cen));
+    panTo(point, speed = 0.5) {
+        if (this.panAnimation.animate != false) {
+            let v = new Vector(point);
+            if (!v.isEqual(new Vector(this.center))) {
+                this.panAnimation.animate = true;
+                let cen = new Vector(this.center);
+         
+                let vel = v.subtract(cen).unit().mult(0.1 * speed);
+                if (Vector.length(v, cen) < vel.mag) {
+                    vel.resizeTo(Vector.length(v, cen));
+                }
+                this.updateRangeX([this.rangeX[0] + vel.x, this.rangeX[1] + vel.x]);
+                this.updateRangeY([this.rangeY[0] + vel.y, this.rangeY[1] + vel.y]);
             }
-            this.updateRangeX([this.rangeX[0] + vel.x, this.rangeX[1] + vel.x]);
-            this.updateRangeY([this.rangeY[0] + vel.y, this.rangeY[1] + vel.y]);
+            else {
+                this.panAnimation.animate = false;
+            }
         }
+        return this.panAnimation;
     }
 
     drawPlane() {
@@ -93,18 +107,22 @@ class Cartesian {
             this.sketch.strokeWeight(0.5);
             this.sketch.stroke(this.colorPallete.grid);
 
-            if (i.toFixed(10) == 0) {
-                this.sketch.strokeWeight(1);
-                this.sketch.stroke(this.colorPallete.axis);
-                // this.sketch.line(this.pointToPixel(i, 0)[0], 0, this.pointToPixel(i, 0)[0], this.sketch.height);
-            }
-
             if ((i / this.markings).round(5) % 1 == 0 && i.toFixed() != 0) {
                 this.sketch.strokeWeight(1);
             }
+            if (this.grid.style == "gridlined") {
+                this.sketch.line(this.pointToPixel(i, 0)[0], 0, this.pointToPixel(i, 0)[0], this.sketch.height);
+            }
+            else {
+                this.sketch.line(this.pointToPixel(i, 0)[0], this.originPx[1] - 5, this.pointToPixel(i, 0)[0], this.originPx[1] + 5);
+            }
             
-            this.sketch.line(this.pointToPixel(i, 0)[0], 0, this.pointToPixel(i, 0)[0], this.sketch.height);
-            
+            if (i.toFixed(10) == 0) {
+                this.sketch.strokeWeight(1);
+                this.sketch.stroke(this.colorPallete.axis);
+                this.sketch.line(this.pointToPixel(i, 0)[0], 0, this.pointToPixel(i, 0)[0], this.sketch.height);
+            }
+
             if ((i / this.markings).round(5) % 1 == 0 || i.toFixed(10) == 0) {
                 this.sketch.textSize(17);
                 this.sketch.fill(this.colorPallete.markings);
@@ -112,10 +130,14 @@ class Cartesian {
                 this.sketch.textAlign(this.sketch.CENTER, this.sketch.TOP);
                 if(i.toFixed(10) == 0) {
                     this.sketch.textAlign(this.sketch.RIGHT, this.sketch.TOP);
-                    this.sketch.text( 0, this.pointToPixel(i, 0)[0] - 10, this.originPx[1] + 10);
+                    if (this.grid.numbered) {
+                        this.sketch.text( 0, this.pointToPixel(i, 0)[0] - 10, this.originPx[1] + 10);
+                    }
                     continue;
                 }
-                this.sketch.text(i.round(3), this.pointToPixel(i, 0)[0], this.originPx[1] + 10);
+                if (this.grid.numbered) {
+                    this.sketch.text(i.round(3), this.pointToPixel(i, 0)[0], this.originPx[1] + 10);
+                }
             }
         }
 
@@ -125,20 +147,29 @@ class Cartesian {
             if (j.toFixed(10) == 0) {
                 this.sketch.strokeWeight(1);
                 this.sketch.stroke(this.colorPallete.axis);
-                // this.sketch.line(0, this.pointToPixel(0, j)[1], this.sketch.width, this.pointToPixel(0, j)[1]);
+                this.sketch.line(0, this.pointToPixel(0, j)[1], this.sketch.width, this.pointToPixel(0, j)[1]);
             }
             if ((j / this.markings).round(5) % 1 == 0 && j.toFixed(10) != 0) {
                 this.sketch.strokeWeight(1);
             }
             
-            this.sketch.line(0, this.pointToPixel(0, j)[1], this.sketch.width, this.pointToPixel(0, j)[1]);
+            if (this.grid.style == "gridlined") {
+                this.sketch.line(0, this.pointToPixel(0, j)[1], this.sketch.width, this.pointToPixel(0, j)[1]);
 
+            }
+            else {
+                this.sketch.line(this.originPx[0] - 5, this.pointToPixel(0, j)[1], this.originPx[0] + 5, this.pointToPixel(0, j)[1]);
+
+            }
+            
             if ((j / this.markings).round(5) % 1 == 0 && j.toFixed(10) != 0) {
                 this.sketch.textSize(17);
                 this.sketch.fill(this.colorPallete.markings);
                 this.sketch.noStroke();
                 this.sketch.textAlign(this.sketch.RIGHT, this.sketch.TOP);
-                this.sketch.text(j.round(3), this.originPx[0] - 10, this.pointToPixel(0, j)[1]);
+                if (this.grid.numbered) {
+                    this.sketch.text(j.round(3), this.originPx[0] - 10, this.pointToPixel(0, j)[1]);
+                }
             }
         }
     }
@@ -234,4 +265,18 @@ class Vector {
 
 Number.prototype.round = function(places) {
     return +(Math.round(this + "e+" + places)  + "e-" + places);
-  }
+}
+
+class Animation {
+    constructor( animate = null, val = 0, inc = 0) {
+        this.animate = animate;
+        this.val = val;
+        this.inc = inc;
+    }
+
+    then(f) {
+        if (!this.animate) {
+            f();
+        }
+    }
+}
