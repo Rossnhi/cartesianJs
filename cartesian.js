@@ -178,7 +178,7 @@ class Cartesian {
                 this.sketch.textSize(17);
                 this.sketch.fill(this.colorPallete.markings);
                 this.sketch.noStroke();
-                this.sketch.textAlign(this.sketch.RIGHT, this.sketch.TOP);
+                this.sketch.textAlign(this.sketch.RIGHT, this.sketch.CENTER);
                 if (this.grid.numbered) {
                     this.sketch.text(j.round(3), this.originPx[0] - 10, this.pointToPixel(0, j)[1]);
                 }
