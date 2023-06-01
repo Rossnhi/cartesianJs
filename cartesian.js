@@ -19,8 +19,14 @@ class Cartesian {
         };
         this.markings = 1; // grid will have thick lines and be marked with the number every ___ units
         this.gridAnimation = gridAnimation;
-        this.zoomAnimation = new Animation();
-        this.panAnimation = new Animation();
+        this.zoom = {
+            sequencer : 0,
+            animations : []
+        };
+        this.pan = {
+            sequencer : 0,
+            animations : []
+        }
     }
 
     pixelToPoint(x, y) {
@@ -41,10 +47,6 @@ class Cartesian {
         this.rangeSpanX = this.rangeX[1] - this.rangeX[0];
         this.originPx[0] = -this.rangeX[0] * this.unitX;
         this.center[0] = (this.rangeX[1] + this.rangeX[0])/2;
-
-        if(this.rangeX[1] - this.rangeX[0] < 2 * this.scale) {
-            this.sketch.noLoop();
-        }
     }
 
     updateRangeY(newRange) {
@@ -53,10 +55,6 @@ class Cartesian {
         this.rangeSpanY = this.rangeY[1] - this.rangeY[0];
         this.center[1] = (this.rangeY[1] + this.rangeY[0])/2;
         this.originPx[1] =  this.rangeY[1] * this.unitY;
-
-        if(this.rangeY[1] - this.rangeY[0] < 2 * this.scale) {
-            this.sketch.noLoop();
-        }
     }
 
     updateScale(newScale) {
@@ -66,24 +64,31 @@ class Cartesian {
     // give positive speed to zoom in and negative to zoom out
     // will zoom till the viewport displays a graph that ranges to targetScale * scale in all directions from center 
     zoomToCenter(speed = 1, targetScale = 1, targetRange = null) {
-        if (this.zoomAnimation.animate != false) {
-            if ((!targetRange || (targetRange[0] * Math.sign(speed) > this.rangeX[0] * Math.sign(speed))) && this.scale < (this.rangeX[1] - this.rangeX[0])/(2 * targetScale)) {
-                this.zoomAnimation.animate = true;
+        if (typeof this.zoom.animations[this.zoom.sequencer] == "undefined") {
+            this.zoom.animations[this.zoom.sequencer] = new Animation();
+        }
+        if (this.zoom.animations[this.zoom.sequencer].animate != false) {
+            if ((!targetRange || (targetRange[0] * Math.sign(speed) > this.rangeX[0] * Math.sign(speed))) && this.scale * Math.sign(speed) < (this.rangeX[1] - this.rangeX[0])/(2 * targetScale) * Math.sign(speed)) {
+                this.zoom.animations[this.zoom.sequencer].animate = true;
                 this.updateRangeX([this.rangeX[0] + (.002 * this.rangeSpanX * speed), this.rangeX[1] - (.002 * this.rangeSpanX  * speed)]);
                 this.updateRangeY([this.rangeY[0] + (.002 * this.rangeSpanY * speed), this.rangeY[1] - (.002 * this.rangeSpanY  * speed)]);
             }
             else {
-                this.zoomAnimation.animate = false;
+                this.zoom.animations[this.zoom.sequencer].animate = false;
             }
         }
-        return this.zoomAnimation;
+        this.zoom.sequencer++;
+        return this.zoom.animations[this.zoom.sequencer - 1];
     }
 
     panTo(point, speed = 0.5) {
-        if (this.panAnimation.animate != false) {
+        if (typeof this.pan.animations[this.pan.sequencer] == "undefined") {
+            this.pan.animations[this.pan.sequencer] = new Animation();
+        }
+        if (this.pan.animations[this.pan.sequencer].animate != false) {
             let v = new Vector(point);
             if (!v.isEqual(new Vector(this.center))) {
-                this.panAnimation.animate = true;
+                this.pan.animations[this.pan.sequencer].animate = true;
                 let cen = new Vector(this.center);
          
                 let vel = v.subtract(cen).unit().mult(0.1 * speed);
@@ -94,13 +99,20 @@ class Cartesian {
                 this.updateRangeY([this.rangeY[0] + vel.y, this.rangeY[1] + vel.y]);
             }
             else {
-                this.panAnimation.animate = false;
+                this.pan.animations[this.pan.sequencer].animate = false;
             }
         }
-        return this.panAnimation;
+        this.pan.sequencer++;
+        return this.pan.animations[this.pan.sequencer - 1];
+    }
+
+    resetAnimationSequencer() {
+        this.zoom.sequencer = 0;
+        this.pan.sequencer = 0;
     }
 
     drawPlane() {
+        this.resetAnimationSequencer();
         this.sketch.background(this.colorPallete.background);
         
         for (let i = parseInt(this.rangeX[0]/this.scale) * this.scale; i <= this.rangeX[1]; i += this.scale) {
@@ -274,8 +286,16 @@ class Animation {
         this.inc = inc;
     }
 
+    // a.then(b) will execute b sequentially after a is done animating. b starts after a.
     then(f) {
         if (!this.animate) {
+            f();
+        }
+    }
+
+    // a.tillThen(b) will execute b while a is animating and will continue only till a is done animating. b stops as soon as a stops
+    tillThen(f) {
+        if (this.animate) {
             f();
         }
     }
