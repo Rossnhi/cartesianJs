@@ -1,20 +1,21 @@
 class Cartesian {
-    constructor({sketch, rangeX = [-5, 5], rangeY = [-5, 5], scale = 0.25, grid = {numbered : true, style : "gridlined"}, gridAnimation = new Animation(true, 0, 0.1)}) {
-        this.sketch = sketch;
+    constructor({ canvasSize = [600, 600], rangeX = [-5, 5], rangeY = [-5, 5], scale = 0.25, grid = {numbered : true, style : "gridlined"}, gridAnimation = new Animation(true, 0, 0.1), draw}) {
+        this.sketch;
+        this.initializeSketch(canvasSize[0], canvasSize[1]);
         this.rangeX = rangeX;
         this.rangeSpanX = this.rangeX[1] - this.rangeX[0];
         this.rangeY = rangeY;
         this.rangeSpanY = this.rangeY[1] - this.rangeY[0];
         this.scale = scale; // distance at which gridlines are displayed
         this.grid = grid;
-        this.unitX = this.sketch.width/(rangeX[1] - rangeX[0]);
-        this.unitY = this.sketch.height/(rangeY[1] - rangeY[0]);
-        this.originPx = [-rangeX[0] * this.unitX, rangeY[1] * this.unitY];
+        this.unitX;
+        this.unitY;
+        this.originPx;
         this.center = [(this.rangeX[1] + this.rangeX[0])/2, (this.rangeY[1] + this.rangeY[0])/2];
         this.colorPallete = {
             background : 30,
             axis : 255,
-            grid : grid.style == "gridlined" ? this.sketch.color(50, 120, 180) : 255,
+            grid : null,
             markings : 255
         };
         this.markings = 1; // grid will have thick lines and be marked with the number every ___ units
@@ -27,6 +28,31 @@ class Cartesian {
             sequencer : 0,
             animations : []
         }
+
+        this.p5;
+        
+    }
+
+    initializeSketch(canvasWidth, canvasHeight) {
+        const s = ( sketch ) => {
+            sketch.setup = () => {
+              sketch.createCanvas(canvasWidth, canvasHeight);
+              this.sketch = sketch;
+              this.unitX = this.sketch.width/(this.rangeX[1] - this.rangeX[0]);
+              this.unitY = this.sketch.height/(this.rangeY[1] - this.rangeY[0]);
+              this.originPx = [-this.rangeX[0] * this.unitX, this.rangeY[1] * this.unitY];
+              this.colorPallete.grid = this.grid.style == "gridlined" ? this.sketch.color(50, 120, 180) : 255;
+              this.drawPlane();
+            };
+          };
+          this.p5 = new p5(s);
+    }
+
+    draw(f) {
+        this.p5.draw = () => {
+            f();
+            this.drawPlane();
+        };
     }
 
     pixelToPoint(x, y) {
