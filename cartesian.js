@@ -6,6 +6,9 @@ class Cartesian {
         this.rangeSpanX = this.rangeX[1] - this.rangeX[0];
         this.rangeY = rangeY;
         this.rangeSpanY = this.rangeY[1] - this.rangeY[0];
+        this.unitX = this.sketch.width/(this.rangeX[1] - this.rangeX[0]);
+        this.unitY = this.sketch.height/(this.rangeY[1] - this.rangeY[0]);
+        this.originPx = [-this.rangeX[0] * this.unitX, this.rangeY[1] * this.unitY];
         this.scale = scale; // distance at which gridlines are displayed
         this.grid = grid;
         this.unitX;
@@ -34,10 +37,6 @@ class Cartesian {
         const s = ( sketch ) => {
             sketch.setup = () => {
               sketch.createCanvas(canvasWidth, canvasHeight);
-              this.unitX = this.sketch.width/(this.rangeX[1] - this.rangeX[0]);
-              this.unitY = this.sketch.height/(this.rangeY[1] - this.rangeY[0]);
-              this.originPx = [-this.rangeX[0] * this.unitX, this.rangeY[1] * this.unitY];
-            //   this.colorPallete.grid = this.grid.style == "gridlined" ?  this.colorPallete.grid : 255;
               this.drawPlane();
             };
           };
