@@ -15,7 +15,7 @@ class Cartesian {
         this.colorPallete = {
             background : 30,
             axis : 255,
-            grid : null,
+            grid : this.sketch.color(50, 120, 180),
             markings : 255
         };
         this.markings = 1; // grid will have thick lines and be marked with the number every ___ units
@@ -28,28 +28,24 @@ class Cartesian {
             sequencer : 0,
             animations : []
         }
-
-        this.p5;
-        
     }
 
     initializeSketch(canvasWidth, canvasHeight) {
         const s = ( sketch ) => {
             sketch.setup = () => {
               sketch.createCanvas(canvasWidth, canvasHeight);
-              this.sketch = sketch;
               this.unitX = this.sketch.width/(this.rangeX[1] - this.rangeX[0]);
               this.unitY = this.sketch.height/(this.rangeY[1] - this.rangeY[0]);
               this.originPx = [-this.rangeX[0] * this.unitX, this.rangeY[1] * this.unitY];
-              this.colorPallete.grid = this.grid.style == "gridlined" ? this.sketch.color(50, 120, 180) : 255;
+            //   this.colorPallete.grid = this.grid.style == "gridlined" ?  this.colorPallete.grid : 255;
               this.drawPlane();
             };
           };
-          this.p5 = new p5(s);
+          this.sketch = new p5(s);
     }
 
     draw(f) {
-        this.p5.draw = () => {
+        this.sketch.draw = () => {
             f();
             this.drawPlane();
         };
