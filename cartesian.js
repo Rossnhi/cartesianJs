@@ -6,6 +6,9 @@ class Cartesian {
         this.rangeSpanX = this.rangeX[1] - this.rangeX[0];
         this.rangeY = rangeY;
         this.rangeSpanY = this.rangeY[1] - this.rangeY[0];
+        this.unitX = canvasSize[0]/(this.rangeX[1] - this.rangeX[0]);
+        this.unitY = canvasSize[1]/(this.rangeY[1] - this.rangeY[0]);
+        this.originPx = [-this.rangeX[0] * this.unitX, this.rangeY[1] * this.unitY];
         this.scale = scale; // distance at which gridlines are displayed
         this.grid = grid;
         this.unitX;
@@ -38,19 +41,48 @@ class Cartesian {
         const s = ( sketch ) => {
             sketch.setup = () => {
                 sketch.createCanvas(canvasWidth, canvasHeight);
-                this.unitX = this.sketch.width/(this.rangeX[1] - this.rangeX[0]);
-                this.unitY = this.sketch.height/(this.rangeY[1] - this.rangeY[0]);
-                this.originPx = [-this.rangeX[0] * this.unitX, this.rangeY[1] * this.unitY];
-                this.drawPlane();
+                this._draw();
             };
           };
           this.sketch = new p5(s);
     }
 
+    _draw() {
+        this.drawPlane();
+        this.drawPoints();
+        this.drawPlots();
+    }
+
     draw(f) {
         this.sketch.draw = () => {
             f();
-            this.drawPlane();
+            this._draw();
+        };
+    }
+
+    _setup() {
+        this.mousePressed();
+    }
+
+    setup(f) {
+        var cachedFunc = this.sketch.setup;
+        this.sketch.setup = () => {
+            cachedFunc.apply();
+            f();
+            this._setup();
+        };
+    }
+
+    _mousePressed() {
+        for (let point of this.components.points) {
+            point._mousePressed();
+        }
+    }
+
+    mousePressed(f = () => {}) {
+        this.sketch.mousePressed = () => {
+            f();
+            this._mousePressed();
         };
     }
 
@@ -212,9 +244,31 @@ class Cartesian {
     }
 
     addPoint(p) {
-        this.components.plots.push(new Point(p, this));
+        let point = new Point(p, this);
+        this.components.points.push(point);
+        return point;
+    }
+
+    drawPoints() {
+        for (let point of this.components.points) {
+            point.draw();
+        }
     }
     
+    addPlot(f) {
+        let plot = new Plot(f, this);
+        this.components.plots.push(plot);
+        return plot;
+    }
+
+    drawPlots() {
+        for (let plot of this.components.plots) {
+            plot.draw();
+            for (let plotPoint of plot.plotPoints) {
+                plotPoint.p.draw();
+            }
+        }
+    }
 }
 
 class Vector {
@@ -226,6 +280,26 @@ class Vector {
 
     static createVector(a = 0) {
         return new Vector([a, a]);
+    }
+
+    index(i) {
+        switch (i) {
+            case 0:
+                return this.x;
+            case 1:
+                return this.y;
+        }
+    }
+
+    insert(i, val) {
+        switch (i) {
+            case 0:
+                this.x = val;
+            case 1:
+                this.y = val;
+        }
+
+        return this;
     }
 
     isEqual(v) {
@@ -283,16 +357,14 @@ class Vector {
         return (this.dotProduct(v) == 0);
     }
     
-    normal() {
-        if (this.x != 0) {
-            return new Vector([1/this.x, 0]);
-        }
-        else if (this.y != 0) {
-            return new Vector([0, 1/this.y]);
-        }
-        else {
-            return this.clone();
-        }
+    normal(dir = 1) {
+        return new Vector([-this.y * dir, this.x * dir]);
+    }
+
+    rotate(t) {
+        t = t * Math.PI / 180;
+        let rot = new Matrix([new Vector([ Math.cos(t), -Math.sin(t)]), new Vector([ Math.sin(t), Math.cos(t)])]);
+        return rot.vectorMult(this).mult(1/this.mag);
     }
 
     static length(v1, v2 = new Vector([0, 0])) {
@@ -300,6 +372,76 @@ class Vector {
         return len;
     }
 
+}
+
+class Matrix {
+    constructor(matrix) {
+        this.matrix = matrix;
+    }
+
+    det() {
+        return ((this.matrix[0].index(0) * this.matrix[1].index(1)) - (this.matrix[1].index(0) * this.matrix[0].index(1)));
+    }
+
+    adj() {
+        return new Matrix([ new Vector([ this.matrix[1].index(1), -this.matrix[0].index(1)]), new Vector([ -this.matrix[1].index(0), this.matrix[0].index(0)])]);
+    }
+
+    inv() {
+        if (this.det() != 0) {
+            return this.adj().scalarMult(1/this.det());
+        }
+    }
+
+    transpose() {
+        return new Matrix([new Vector([ this.matrix[0].index(0), this.matrix[1].index(0)]), new Vector([ this.matrix[0].index(1), this.matrix[1].index(1)])]);
+    }
+
+    add(m) {
+        let res = new Matrix([]);
+        for(let i = 0; i < 2; i++) {
+            res.matrix.push(new Vector([0, 0]));
+            for (let j = 0; j < 2; j++) {
+                res.matrix[i].insert(j, this.matrix[i].index(j) + m.matrix[i].index(j));
+            }
+        }
+        return res;
+    }
+
+    scalarMult(a) {
+        let res = new Matrix([]);
+        for(let i = 0; i < 2; i++) {
+            res.matrix.push(new Vector([0, 0]));
+            for (let j = 0; j < 2; j++) {
+                res.matrix[i].insert(j, this.matrix[i].index(j) * a);
+            }
+        }
+        return res;
+    }
+
+    subtract(m) {
+        return this.add(m.scalarMult(-1));
+    }
+
+    matMult(m) {
+        let res = new Matrix([new Vector([0, 0]), new Vector([0, 0])]);
+        for(let i = 0; i < 2; i++) {
+            for (let j = 0; j < 2; j++) {
+                let dot = this.matrix[i].dotProduct(new Vector([m.matrix[0].index(j), m.matrix[1].index(j)]));
+                res.matrix[i].insert(j, dot);
+            }
+        }
+        return res;
+    }
+
+    vectorMult(v) {
+        let res = new Vector([0, 0]);
+        for(let i = 0; i < 2; i++) {
+            let dot = this.matrix[i].dotProduct(v);
+            res.insert(i, dot);
+        }
+        return res;
+    }
 }
 
 Number.prototype.round = function(places) {
@@ -314,10 +456,13 @@ class Animation {
     }
 
     // a.then(b) will execute b sequentially after a is done animating. b starts after a.
-    then(f) {
+    then(f, s = 0) {
         if (!this.animate) {
-            f();
+            if (this.inc > s * 55) {
+                f();
+            }
         }
+        this.inc++;
     }
 
     // a.tillThen(b) will execute b while a is animating and will continue only till a is done animating. b stops as soon as a stops
@@ -329,12 +474,138 @@ class Animation {
 }
 
 class Point {
-    constructor(p, cart, size = 5, color = 255, style = "dot", dropPerpendiculars = false) {
+    constructor(p, cart, size = 7, color = null, style = "dot", dropPerpendiculars = false) {
         this.point = new Vector(p);
         this.c = cart; // object of class cartesian
+        this.pointPx = this.c.pointToPixel(this.point.x, this.point.y);
         this.size = size;
-        this.color = color;
+        this.color = color == null? c.sketch.color(235, 195, 52) : color;
         this.style = style;
         this.dropPerpendiculars = style == "dot"? dropPerpendiculars : false;
+        this.moveWithMouse = false;
+        this.move = false;
+    }
+
+    _moveWithMouse() {
+        if (this.move && this.moveWithMouse) {
+            this.update([this.c.pixelToPoint(this.c.sketch.mouseX, this.c.sketch.mouseY)[0], this.c.pixelToPoint(this.c.sketch.mouseX, this.c.sketch.mouseY)[1]]);
+        }
+    }
+
+    update(p) {
+        this.point = new Vector(p);
+        this.pointPx = this.c.pointToPixel(this.point.x, this.point.y);
+    }
+
+    modify() {
+        this._moveWithMouse();
+    }
+
+    draw() {
+        this.modify();
+
+        this.pointPx = this.c.pointToPixel(this.point.x, this.point.y);
+
+        if (this.style == "dot") {
+            this.c.sketch.noStroke();
+            this.c.sketch.fill(this.color);
+            this.c.sketch.ellipse(this.pointPx[0], this.pointPx[1], this.size, this.size);
+
+            if (this.dropPerpendiculars) {
+                this.c.sketch.stroke(this.color);
+                this.c.sketch.strokeWeight(1.5);
+                this.c.sketch.line(this.pointPx[0], this.pointPx[1], this.pointPx[0], this.c.originPx[1]);
+                this.c.sketch.line(this.pointPx[0], this.pointPx[1], this.c.originPx[0], this.pointPx[1]);
+            }
+        }
+        else {
+            this.c.sketch.stroke(this.color);
+            this.c.sketch.strokeWeight(1.5);
+            this.c.sketch.line( this.c.originPx[0], this.c.originPx[1], this.pointPx[0], this.pointPx[1]);
+
+            let arrow1 = this.point.mult(-1).rotate(30).unit().mult(10/ this.c.unitX).add(this.point);
+            this.c.sketch.line(this.pointPx[0], this.pointPx[1], this.c.pointToPixel(arrow1.x, arrow1.y)[0], this.c.pointToPixel(arrow1.x, arrow1.y)[1]);
+            
+            let arrow2 = this.point.mult(-1).rotate(-30).unit().mult(10/ this.c.unitX).add(this.point);
+            this.c.sketch.line(this.pointPx[0], this.pointPx[1], this.c.pointToPixel(arrow2.x, arrow2.y)[0], this.c.pointToPixel(arrow2.x, arrow2.y)[1]);
+        }
+    }
+
+    _mousePressed() {
+        if(( this.pointPx[0] < this.c.sketch.mouseX + 5 && this.pointPx[0] > this.c.sketch.mouseX - 5) && ( this.pointPx[1] < this.c.sketch.mouseY + 5 && this.pointPx[1] > this.c.sketch.mouseY - 5 )) {
+            this.move = !this.move;
+        }
+    }
+}
+
+class Plot {
+    constructor(func, cart, color = null, step = 3000) {
+        this.func = func;
+        this.c = cart;
+        this.color = color == null? c.sketch.color(69, 205, 255) : color;
+        this.plotPoints = [];
+        this.step = step;
+    }
+
+    draw() {
+        for(let plotPoint of this.plotPoints) {
+            plotPoint.slides.sequencer = 0;
+        }   
+
+        let span = this.c.rangeSpanX/this.step;
+        let prevX = this.c.rangeX[0];
+        for (let x = this.c.rangeX[0]; x <= this.c.rangeX[1]; x += span) {
+            this.c.sketch.strokeWeight(1.1);
+            this.c.sketch.stroke(this.color);
+            this.c.sketch.line(this.c.pointToPixel(prevX, this.func(prevX))[0], this.c.pointToPixel(prevX, this.func(prevX))[1], this.c.pointToPixel(x, this.func(x))[0], this.c.pointToPixel(x, this.func(x))[1]);
+            prevX = x;
+        }
+    }
+
+    addPlotPoint(x) {
+        let p = new PlotPoint(new Point([x, this.func(x)], this.c), this.func);
+        p.p.dropPerpendiculars = true;
+        this.plotPoints.push(p);
+        return p;
+    }
+}
+
+class PlotPoint {
+    constructor(p, func) {
+        this.p = p;
+        this.func = func;
+        this.slides = {
+            sequencer : 0,
+            animations : []
+        };
+    }
+
+    slideTo(x, speed = 1) {
+        if (typeof this.slides.animations[this.slides.sequencer] == "undefined") {
+            this.slides.animations[this.slides.sequencer] = new Animation();
+        }
+        if (this.slides.animations[this.slides.sequencer].animate != false) {
+            if ( Math.abs(x - this.p.point.x) > 0.0005 * speed * this.p.c.rangeSpanX) {
+                this.slides.animations[this.slides.sequencer].animate = true;
+                if(x > this.p.point.x) {
+                    let newX = this.p.point.x + 0.0005 * speed * this.p.c.rangeSpanX;
+                    this.p.update([newX, this.func(newX)]);
+                }
+                else {
+                    let newX = this.p.point.x - 0.0005 * speed * this.p.c.rangeSpanX;
+                    this.p.update([newX, this.func(newX)]);
+                }
+            }
+            else {
+                // this.p.update([x, this.func(x)]);
+                this.slides.animations[this.slides.sequencer].animate = false
+            }
+        }
+        this.slides.sequencer++;
+        return this.slides.animations[this.slides.sequencer - 1];
+    }
+
+    style(s) {
+        this.p.style = s;
     }
 }
