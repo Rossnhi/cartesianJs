@@ -1,5 +1,5 @@
 class Cartesian {
-    constructor({ canvasSize = [600, 600], rangeX = [-5, 5], rangeY = [-5, 5], scale = 0.25, grid = {numbered : true, style : "gridlined"}, gridAnimation = new Animation(true, 0, 0.1), draw}) {
+    constructor({ canvasSize = [600, 600], rangeX = [-5, 5], rangeY = [-5, 5], scale = 0.25, grid = {numbered : true, style : "gridlined"}, gridAnimation = new Animation(false, 0, 1/100)}) {
         this.sketch;
         this.initializeSketch(canvasSize[0], canvasSize[1]);
         this.rangeX = rangeX;
@@ -49,14 +49,18 @@ class Cartesian {
 
     _draw() {
         this.drawPlane();
-        this.drawPoints();
-        this.drawPlots();
+        this.gridAnimation.then(() => {
+            this.drawPoints();
+            this.drawPlots();
+        }, 4);
     }
 
     draw(f) {
         this.sketch.draw = () => {
-            f();
             this._draw();
+            this.gridAnimation.then(() => {
+                f();
+            }, 4);
         };
     }
 
@@ -171,6 +175,18 @@ class Cartesian {
     drawPlane() {
         this.resetAnimationSequencer();
         this.sketch.background(this.colorPallete.background);
+
+        if(this.gridAnimation.animate) {
+            if(this.gridAnimation.val < 1) {
+                this.gridAnimation.val += this.gridAnimation.inc;
+            }
+            else {
+                this.gridAnimation.animate = false;
+            }
+        }
+        else {
+            this.gridAnimation.val = 1;
+        }
         
         for (let i = parseInt(this.rangeX[0]/this.scale) * this.scale; i <= this.rangeX[1]; i += this.scale) {
             this.sketch.strokeWeight(0.5);
@@ -180,7 +196,7 @@ class Cartesian {
                 this.sketch.strokeWeight(1);
             }
             if (this.grid.style == "gridlined") {
-                this.sketch.line(this.pointToPixel(i, 0)[0], 0, this.pointToPixel(i, 0)[0], this.sketch.height);
+                this.sketch.line(this.pointToPixel(i, 0)[0],this.sketch.height - (this.gridAnimation.val * this.sketch.height), this.pointToPixel(i, 0)[0], this.sketch.height );
             }
             else {
                 this.sketch.line(this.pointToPixel(i, 0)[0], this.originPx[1] - 5, this.pointToPixel(i, 0)[0], this.originPx[1] + 5);
@@ -189,7 +205,7 @@ class Cartesian {
             if (i.toFixed(10) == 0) {
                 this.sketch.strokeWeight(1);
                 this.sketch.stroke(this.colorPallete.axis);
-                this.sketch.line(this.pointToPixel(i, 0)[0], 0, this.pointToPixel(i, 0)[0], this.sketch.height);
+                this.sketch.line(this.pointToPixel(i, 0)[0], this.sketch.height - (this.gridAnimation.val * this.sketch.height), this.pointToPixel(i, 0)[0], this.sketch.height);
             }
 
             if ((i / this.markings).round(5) % 1 == 0 || i.toFixed(10) == 0) {
@@ -200,12 +216,16 @@ class Cartesian {
                 if(i.toFixed(10) == 0) {
                     this.sketch.textAlign(this.sketch.RIGHT, this.sketch.TOP);
                     if (this.grid.numbered) {
-                        this.sketch.text( 0, this.pointToPixel(i, 0)[0] - 10, this.originPx[1] + 10);
+                        if(i <= this.rangeX[0] + (this.gridAnimation.val * this.rangeSpanX))  {
+                            this.sketch.text( 0, this.pointToPixel(i, 0)[0] - 10, this.originPx[1] + 10);
+                        }
                     }
                     continue;
                 }
                 if (this.grid.numbered) {
-                    this.sketch.text(i.round(3), this.pointToPixel(i, 0)[0], this.originPx[1] + 10);
+                    if(i <= this.rangeX[0] + (this.gridAnimation.val * this.rangeSpanX)) {
+                        this.sketch.text(i.round(3), this.pointToPixel(i, 0)[0], this.originPx[1] + 10);
+                    }
                 }
             }
         }
@@ -216,14 +236,13 @@ class Cartesian {
             if (j.toFixed(10) == 0) {
                 this.sketch.strokeWeight(1);
                 this.sketch.stroke(this.colorPallete.axis);
-                this.sketch.line(0, this.pointToPixel(0, j)[1], this.sketch.width, this.pointToPixel(0, j)[1]);
             }
             if ((j / this.markings).round(5) % 1 == 0 && j.toFixed(10) != 0) {
                 this.sketch.strokeWeight(1);
             }
             
             if (this.grid.style == "gridlined") {
-                this.sketch.line(0, this.pointToPixel(0, j)[1], this.sketch.width, this.pointToPixel(0, j)[1]);
+                this.sketch.line(0, this.pointToPixel(0, j)[1], this.sketch.width * this.gridAnimation.val, this.pointToPixel(0, j)[1]);
 
             }
             else {
@@ -237,7 +256,9 @@ class Cartesian {
                 this.sketch.noStroke();
                 this.sketch.textAlign(this.sketch.RIGHT, this.sketch.CENTER);
                 if (this.grid.numbered) {
-                    this.sketch.text(j.round(3), this.originPx[0] - 10, this.pointToPixel(0, j)[1]);
+                    if(j <= this.rangeY[0] + (this.gridAnimation.val * this.rangeSpanY)) {
+                        this.sketch.text(j.round(3), this.originPx[0] - 10, this.pointToPixel(0, j)[1]);
+                    }
                 }
             }
         }
@@ -449,20 +470,21 @@ Number.prototype.round = function(places) {
 }
 
 class Animation {
-    constructor( animate = null, val = 0, inc = 0) {
+    constructor( animate = null, val = 0, inc = 0, wait = 0) {
         this.animate = animate;
         this.val = val;
         this.inc = inc;
+        this.wait = wait;
     }
 
     // a.then(b) will execute b sequentially after a is done animating. b starts after a.
     then(f, s = 0) {
         if (!this.animate) {
-            if (this.inc > s * 55) {
+            if (this.wait > s * 55) {
                 f();
             }
         }
-        this.inc++;
+        this.wait++;
     }
 
     // a.tillThen(b) will execute b while a is animating and will continue only till a is done animating. b stops as soon as a stops
@@ -539,27 +561,70 @@ class Point {
 }
 
 class Plot {
-    constructor(func, cart, color = null, step = 3000) {
+    constructor(func, cart, color = null, step = 1000, style = "line") {
         this.func = func;
         this.c = cart;
         this.color = color == null? c.sketch.color(69, 205, 255) : color;
         this.plotPoints = [];
         this.step = step;
+        this.style = style;
+        this.animation = new Animation(false, this.c.rangeX[0], this.c.rangeSpanX/200);
+        this.analysisMode = false; // make true to plot functionof rationals and irrationals
     }
 
     draw() {
+        if(this.animation.animate) {
+            if(this.animation.val < this.c.rangeX[1]) {
+                this.animation.val += this.animation.inc;
+            }
+            else {
+                this.animation.animate = false;
+            }
+        }
+        else {
+            this.animation.val = this.c.rangeX[1];
+        }
+
         for(let plotPoint of this.plotPoints) {
             plotPoint.slides.sequencer = 0;
         }   
 
-        let span = this.c.rangeSpanX/this.step;
+        let ratSpan = this.c.rangeSpanX/this.step;
+        let irratSpan = this.c.rangeSpanX/(this.step + 7) * Math.sqrt(2);
+        let rational = true;
         let prevX = this.c.rangeX[0];
-        for (let x = this.c.rangeX[0]; x <= this.c.rangeX[1]; x += span) {
+        for (let x = this.c.rangeX[0]; x <= this.animation.val; x) {
             this.c.sketch.strokeWeight(1.1);
             this.c.sketch.stroke(this.color);
-            this.c.sketch.line(this.c.pointToPixel(prevX, this.func(prevX))[0], this.c.pointToPixel(prevX, this.func(prevX))[1], this.c.pointToPixel(x, this.func(x))[0], this.c.pointToPixel(x, this.func(x))[1]);
+            if (this.style == "line") {
+                this.c.sketch.line(this.c.pointToPixel(prevX, this.func(prevX))[0], this.c.pointToPixel(prevX, this.func(prevX))[1], this.c.pointToPixel(x, this.func(x))[0], this.c.pointToPixel(x, this.func(x))[1]);
+            }
+            else {
+                this.c.sketch.ellipse(this.c.pointToPixel(x, this.func(x))[0], this.c.pointToPixel(x, this.func(x))[1], 1, 1);
+            }
             prevX = x;
+
+            if(rational) {
+                x = (x + ratSpan).round(5);
+            }
+            else {
+                x += irratSpan;
+            }
+            rational = !rational;
         }
+
+        let span = this.c.scale/20;
+        prevX = this.c.rangeX[0];
+
+        if(this.analysisMode) {
+            for (let x = parseInt(this.c.rangeX[0]) - 1; x <= this.c.rangeX[1]; x += span) {
+                this.c.sketch.strokeWeight(1.1);
+                this.c.sketch.stroke(this.color);
+                this.c.sketch.ellipse(this.c.pointToPixel(x, this.func(x))[0], this.c.pointToPixel(x, this.func(x))[1], 1, 1);
+                prevX = x;
+            }
+        }
+
     }
 
     addPlotPoint(x) {
@@ -607,5 +672,56 @@ class PlotPoint {
 
     style(s) {
         this.p.style = s;
+    }
+}
+
+class Calculus {
+    static continuedFraction(n, cutoff = 10) {
+        let res = [];
+        let cf = Math.abs(n);
+        while ((cf - parseInt(cf)).round(12) > 0) {
+            res.push(parseInt(cf));
+            cf = (cf - parseInt(cf)).round(12);
+            cf = 1/cf.round(12);
+    
+            if(res.length == cutoff) {
+                break;
+            }
+        }
+        res.push(parseInt(cf));
+    
+        if ( n < 0 && res.length > 1) {
+            res[0] = -res[0] - 1;
+            res[1] -= 1;
+            res.splice(1, 0, 1);
+        }
+    
+        return res;
+    }
+    
+    static fraction(n) {
+        let cf = Calculus.continuedFraction(n);
+        let frac = Calculus.CFtoFraction(cf);
+        return frac;
+    }
+    
+    static CFtoFraction(cf) {
+        let res = [0, 1];
+        for(let i = cf.length - 1; i >= 0; i--) {
+            res[0] = (res[1] * cf[i]) + res[0];
+            if(i != 0) {
+                res = [res[1], res[0]];
+            }
+        }
+        return res;
+    }
+
+    
+    static isRational(n) {
+        let CF = Calculus.continuedFraction(n);
+        if(CF.length >= 10) {
+            return false;
+        }
+        return true;
     }
 }
