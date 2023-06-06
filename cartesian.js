@@ -1,5 +1,5 @@
 class Cartesian {
-    constructor({ canvasSize = [600, 600], rangeX = [-5, 5], rangeY = [-5, 5], scale = 0.25, grid = {numbered : true, style : "gridlined"}, gridAnimation = new Animation(false, 0, 1/100)}) {
+    constructor({ canvasSize = [600, 600], rangeX = [-3, 3], rangeY = [-3, 3], scale = 0.25, grid = {numbered : true, style : "gridlined"}, gridAnimation = new Animation(false, 0, 1/100)}) {
         this.sketch;
         this.initializeSketch(canvasSize[0], canvasSize[1]);
         this.rangeX = rangeX;
@@ -278,6 +278,12 @@ class Cartesian {
     
     addPlot(f) {
         let plot = new Plot(f, this);
+        this.components.plots.push(plot);
+        return plot;
+    }
+
+    addParametricPlot(range, f) {
+        let plot = new ParametricPlot(range, f, this);
         this.components.plots.push(plot);
         return plot;
     }
@@ -570,6 +576,7 @@ class Plot {
         this.style = style;
         this.animation = new Animation(false, this.c.rangeX[0], this.c.rangeSpanX/200);
         this.analysisMode = false; // make true to plot functionof rationals and irrationals
+        this.data = [];
     }
 
     draw() {
@@ -613,7 +620,7 @@ class Plot {
             rational = !rational;
         }
 
-        let span = this.c.scale/20;
+        let span = this.c.scale/30;
         prevX = this.c.rangeX[0];
 
         if(this.analysisMode) {
@@ -724,4 +731,51 @@ class Calculus {
         }
         return true;
     }
+}
+
+class ParametricPlot {
+    constructor(paraRange, func, cart, color = null, step = 1000, style = "line") {
+        this.paraRange = paraRange;
+        this.func = func;
+        this.c = cart;
+        this.color = color == null? c.sketch.color(69, 205, 255) : color;
+        this.plotPoints = [];
+        this.step = step;
+        this.style = style;
+        this.animation = new Animation(false, this.paraRange[0], (this.paraRange[1] - this.paraRange[0])/200);
+        this.data = [];
+    }
+
+    draw() {
+        if(this.animation.animate) {
+            if(this.animation.val < this.paraRange[1]) {
+                this.animation.val += this.animation.inc;
+            }
+            else {
+                this.animation.animate = false;
+            }
+        }
+        else {
+            this.animation.val = this.paraRange[1];
+        }
+
+        for(let plotPoint of this.plotPoints) {
+            plotPoint.slides.sequencer = 0;
+        }   
+
+        let span = (this.paraRange[1] - this.paraRange[0])/this.step;
+        let prevT = this.paraRange[0];
+        for (let t = this.paraRange[0]; t <= this.animation.val; t += span) {
+            this.c.sketch.strokeWeight(1.1);
+            this.c.sketch.stroke(this.color);
+            if (this.style == "line") {
+                this.c.sketch.line(this.c.pointToPixel(this.func(prevT)[0], this.func(prevT)[1])[0], this.c.pointToPixel(this.func(prevT)[0], this.func(prevT)[1])[1], this.c.pointToPixel(this.func(t)[0], this.func(t)[1])[0], this.c.pointToPixel(this.func(t)[0], this.func(t)[1])[1]);
+            }
+            else {
+                this.c.sketch.ellipse(this.c.pointToPixel(this.func(t)[0], this.func(t)[1])[0], this.c.pointToPixel(this.func(t)[0], this.func(t)[1])[1], 1, 1);
+            }
+            prevT = t;
+        }
+    }
+
 }

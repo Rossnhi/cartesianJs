@@ -16,4 +16,12 @@ canvas {
   border: solid 1px rgb(177, 177, 177);
 }
 
+button {
+  width : 150px;
+  height : 40px;
+  background-color: rgb(228, 207, 22);
+  border: 1px solid black;
+  border-radius: 3px;
+}
+
 

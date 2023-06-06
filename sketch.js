@@ -11,9 +11,23 @@ let c = new Cartesian({});
 // p1.moveWithMouse = true;
 // let pl1 = c.addPlot((x) => {x ** 2});
 // pl1.addPlotPoint(2);
-// let sin = c.addPlot((x) => (Math.sin(x)));
+// let sin = c.addPlot((x) => (Math.sin(1/x)));
 // sin.color = c.sketch.color(235, 195, 52);
 // sin.animation.animate = true;
+
+// let cir = c.addParametricPlot([0, 2 * Math.PI], (t) => {
+//     return [2 * Math.cos(t), 2 * Math.sin(t)];
+// });
+// cir.color = c.sketch.color(235, 195, 52);
+// cir.animation.animate = true;
+
+// let heart = c.addPlot((x) => {
+//     return ((Math.abs(x) ** (2/3)) + (((3.3 - (x ** 2)) ** 0.5) * Math.sin(1 * Math.PI * x)));
+// });
+// heart.color = c.sketch.color(235, 195, 52);
+// // heart.animation.animate = true;
+// heart.data.push(1);
+
 // c.addPlot((x) => (1/x)).color = c.sketch.color(120, 150, 80);
 // c.addPlot((x) => Math.sin(1/x)).color = c.sketch.color(170, 120, 240);
 
@@ -70,9 +84,9 @@ let c = new Cartesian({});
 //     return sum;
 // });
 
-// c.setup(() => {
+c.setup(() => {
 
-// });
+});
 
 c.draw(() => {
     // c.zoomToCenter(5, 2).then(() =>{
@@ -91,13 +105,51 @@ c.draw(() => {
     //     c.zoomToCenter(1, 2);
     // });
 
-    // c.zoomToCenter(1, 2).then(() => {
-    //     c.scale = 0.0625;
-    //     c.zoomToCenter(1, 2).then(() => {
-    //         c.scale = 0.015625;
+    // c.zoomToCenter(1, 5).then(() => {
+    //     c.scale = 0.125;
+    //     c.zoomToCenter(1, 5).then(() => {
+    //         c.scale = 0.0625;
     //         c.zoomToCenter(1, 2);
     //     });
     // });
+
+    // c.zoomToCenter();
+    // heart.data[0] += 0.01;
+    // heart.func = (x) => {
+    //     return ((Math.abs(x) ** (2/3)) + (((3.3 - (x ** 2)) ** 0.5) * Math.sin(heart.data[0] * Math.PI * x)));
+    // };
 });
 
 
+// const btn = document.querySelector('button'),
+//   chunks = [];
+
+// function record() {
+//   chunks.length = 0;
+//   let stream = document.querySelector('canvas').captureStream(30),
+//   recorder = new MediaRecorder(stream);
+//   recorder.ondataavailable = e => {
+//     if (e.data.size) {
+//       chunks.push(e.data);
+//     }
+//   };
+//   recorder.onstop = exportVideo;
+//   btn.onclick = e => {
+//     recorder.stop();
+//     btn.textContent = 'start recording';
+//     btn.onclick = record;
+//   };
+//   recorder.start();
+//   btn.textContent = 'stop recording';
+// }
+
+// function exportVideo(e) {
+//   var blob = new Blob(chunks);
+//   var vid = document.createElement('video');
+//   vid.id = 'recorded'
+//   vid.controls = true;
+//   vid.src = URL.createObjectURL(blob);
+//   document.body.appendChild(vid);
+//   vid.play();
+// }
+// btn.onclick = record;
