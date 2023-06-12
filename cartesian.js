@@ -52,7 +52,7 @@ class Cartesian {
         this.gridAnimation.then(() => {
             this.drawPoints();
             this.drawPlots();
-        }, 4);
+        });
     }
 
     draw(f) {
@@ -60,7 +60,7 @@ class Cartesian {
             this._draw();
             this.gridAnimation.then(() => {
                 f();
-            }, 4);
+            });
         };
     }
 
@@ -480,6 +480,7 @@ class Animation {
         this.animate = animate;
         this.val = val;
         this.inc = inc;
+        this.data = [];
         this.wait = wait;
     }
 
@@ -512,6 +513,10 @@ class Point {
         this.dropPerpendiculars = style == "dot"? dropPerpendiculars : false;
         this.moveWithMouse = false;
         this.move = false;
+        this.transforms = {
+            sequencer : 0,
+            animations : []
+        };
     }
 
     _moveWithMouse() {
@@ -531,6 +536,8 @@ class Point {
 
     draw() {
         this.modify();
+
+        this.transforms.sequencer = 0;
 
         this.pointPx = this.c.pointToPixel(this.point.x, this.point.y);
 
@@ -564,6 +571,31 @@ class Point {
             this.move = !this.move;
         }
     }
+
+    transform(transformation, speed = 1) {
+        let transMat = new Matrix([new Vector([transformation[0][0], transformation[1][0]]), new Vector([transformation[0][1], transformation[1][1]])]);
+        if (typeof this.transforms.animations[this.transforms.sequencer] == "undefined") {
+            this.transforms.animations[this.transforms.sequencer] = new Animation(null, 0, 0.01 *speed);
+            this.transforms.animations[this.transforms.sequencer].data.push(this.point);
+        }
+
+        if (this.transforms.animations[this.transforms.sequencer].animate != false) {
+            if ( this.transforms.animations[this.transforms.sequencer].val < 1) {
+                this.transforms.animations[this.transforms.sequencer].animate = true;
+                this.transforms.animations[this.transforms.sequencer].val += this.transforms.animations[this.transforms.sequencer].inc;
+                this.point = this.transforms.animations[this.transforms.sequencer].data[0].mult(1 - this.transforms.animations[this.transforms.sequencer].val).add(transMat.vectorMult(this.transforms.animations[this.transforms.sequencer].data[0]).mult(this.transforms.animations[this.transforms.sequencer].val));     
+            }
+            else {
+                this.transforms.animations[this.transforms.sequencer].animate = false
+                this.transforms.animations[this.transforms.sequencer].val = 1;
+                this.point = this.transforms.animations[this.transforms.sequencer].data[0].mult(1 - this.transforms.animations[this.transforms.sequencer].val).add(transMat.vectorMult(this.transforms.animations[this.transforms.sequencer].data[0]).mult(this.transforms.animations[this.transforms.sequencer].val));     
+            }
+        }
+
+        this.transforms.sequencer++;
+        return this.transforms.animations[this.transforms.sequencer - 1];
+    }
+
 }
 
 class Plot {
@@ -779,3 +811,4 @@ class ParametricPlot {
     }
 
 }
+

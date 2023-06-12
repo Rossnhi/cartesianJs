@@ -8,6 +8,24 @@ let c = new Cartesian({});
 // c.gridAnimation.animate = true;
 // let p1 = c.addPoint([1,2]);
 // p1.style = "arrow";
+
+let gridPoints = []
+
+for (let i = -3; i <= 3; i += 0.25) {
+    for (let j = -3; j <= 3; j += 0.25) {
+        let pt = c.addPoint([i, j]);
+        pt.size = 4;
+        if( (i == 1 && j == 0)) {
+            pt.style = "arrow";
+            pt.color = c.sketch.color(175, 235, 73);
+        }
+        if( (i == 0 && j == 1)) {
+            pt.style = "arrow";
+            pt.color = c.sketch.color(83, 201, 237);
+        }
+        gridPoints.push(pt);
+    }
+}
 // p1.moveWithMouse = true;
 // let pl1 = c.addPlot((x) => {x ** 2});
 // pl1.addPlotPoint(2);
@@ -118,6 +136,11 @@ c.draw(() => {
     // heart.func = (x) => {
     //     return ((Math.abs(x) ** (2/3)) + (((3.3 - (x ** 2)) ** 0.5) * Math.sin(heart.data[0] * Math.PI * x)));
     // };
+
+    for( let pt of gridPoints) {
+        pt.transform([[-1, 1], [1, 1]]);
+    }
+
 });
 
 
